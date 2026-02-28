@@ -1,7 +1,7 @@
 name: Deploy to EC2
 on:
   push:
-    branches: [ main, Ad-Free ]
+    branches: [ Ad-Free ] # Only runs when you update the Ad-Free branch
 
 jobs:
   deploy:
@@ -17,25 +17,22 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Clean up any stuck Git states from previous failed runs
-            if [ -d "~/Interstellar" ]; then
-              cd ~/Interstellar
-              git merge --abort || true
-              git reset --hard HEAD || true
-            else
+            # 1. Enter the folder (create it if it doesn't exist)
+            if [ ! -d "~/Interstellar" ]; then
               git clone https://github.com/${{ github.repository }} ~/Interstellar
-              cd ~/Interstellar
             fi
+            cd ~/Interstellar
 
-            # 2. Fetch the latest code from GitHub
-            git fetch --all
+            # 2. Fix the "Stuck" state
+            git merge --abort || true
+            git reset --hard HEAD
 
-            # 3. FORCE the server to the Ad-Free branch (No Merging!)
-            # This deletes local changes and makes the server match 'origin/Ad-Free'
+            # 3. Pull ONLY the Ad-Free branch
+            git fetch origin Ad-Free
             git checkout Ad-Free || git checkout -b Ad-Free origin/Ad-Free
             git reset --hard origin/Ad-Free
 
-            # 4. Re-install and Start
+            # 4. Start the site
             npm install
             pm2 delete interstellar || true
             pm2 start npm --name "interstellar" -- start
