@@ -1,7 +1,7 @@
 name: Deploy to EC2
 on:
   push:
-    branches: [ main, Ad-Free ] # Triggers on changes to either branch
+    branches: [ main, Ad-Free ]
 
 jobs:
   deploy:
@@ -17,23 +17,25 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Setup environment
-            sudo apt-get update -y
-            sudo apt-get install -y nodejs npm
-            sudo npm install -g pm2
-
-            # 2. Navigate and clean up
-            if [ ! -d "~/Interstellar" ]; then
+            # 1. Clean up any stuck Git states from previous failed runs
+            if [ -d "~/Interstellar" ]; then
+              cd ~/Interstellar
+              git merge --abort || true
+              git reset --hard HEAD || true
+            else
               git clone https://github.com/${{ github.repository }} ~/Interstellar
+              cd ~/Interstellar
             fi
-            cd ~/Interstellar
-            
-            # 3. Force switch to Ad-Free branch and sync
-            git fetch origin
+
+            # 2. Fetch the latest code from GitHub
+            git fetch --all
+
+            # 3. FORCE the server to the Ad-Free branch (No Merging!)
+            # This deletes local changes and makes the server match 'origin/Ad-Free'
             git checkout Ad-Free || git checkout -b Ad-Free origin/Ad-Free
             git reset --hard origin/Ad-Free
 
-            # 4. Install and Start
+            # 4. Re-install and Start
             npm install
             pm2 delete interstellar || true
             pm2 start npm --name "interstellar" -- start
